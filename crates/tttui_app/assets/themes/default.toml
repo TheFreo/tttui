@@ -1,0 +1,16 @@
+[colors]
+text = "white"
+muted = "darkgray"
+correct = "green"
+incorrect = "red"
+untyped = "gray"
+caret = "yellow"
+accent = "cyan"
+background = "default"
+selection = "blue"
+
+[presentation]
+show_borders = false
+border_style = "plain"
+selector_separator = " / "
+caret_symbol = "_"

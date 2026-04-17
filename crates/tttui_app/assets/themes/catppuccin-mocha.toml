@@ -1,0 +1,16 @@
+[colors]
+text = "#cdd6f4"
+muted = "#6c7086"
+correct = "#a6e3a1"
+incorrect = "#f38ba8"
+untyped = "#7f849c"
+caret = "#f9e2af"
+accent = "#89b4fa"
+background = "default"
+selection = "#45475a"
+
+[presentation]
+show_borders = false
+border_style = "plain"
+selector_separator = " / "
+caret_symbol = "_"
