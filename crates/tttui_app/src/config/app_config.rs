@@ -10,6 +10,8 @@ pub struct AppConfig {
     pub options: Options,
     #[serde(default)]
     pub keybindings: BTreeMap<String, Vec<String>>,
+    #[serde(default)]
+    pub personal_bests: BTreeMap<String, PersonalBest>,
 }
 
 impl Default for AppConfig {
@@ -29,6 +31,7 @@ impl Default for AppConfig {
             defaults: Defaults::default(),
             options: Options::default(),
             keybindings,
+            personal_bests: BTreeMap::new(),
         }
     }
 }
@@ -65,6 +68,13 @@ pub struct Options {
     pub durations: Vec<u16>,
     #[serde(default = "default_word_counts")]
     pub word_counts: Vec<u16>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonalBest {
+    pub net_wpm: f64,
+    pub raw_wpm: f64,
+    pub accuracy: f64,
 }
 
 impl Default for Options {

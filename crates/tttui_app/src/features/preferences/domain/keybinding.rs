@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tttui_core::{AppError, AppResult};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyStroke {
     pub code: KeyCode,
     pub modifiers: KeyModifiers,
@@ -13,8 +13,9 @@ impl KeyStroke {
     pub fn from_token(token: &str) -> AppResult<Self> {
         let mut modifiers = KeyModifiers::empty();
         let mut key_name = None;
+        let normalized = token.to_ascii_lowercase();
 
-        for part in token.to_ascii_lowercase().split('+') {
+        for part in normalized.split('+') {
             match part {
                 "ctrl" | "control" => modifiers |= KeyModifiers::CONTROL,
                 "alt" => modifiers |= KeyModifiers::ALT,
@@ -120,6 +121,15 @@ pub struct KeySequenceMatcher {
 
 impl KeySequenceMatcher {
     pub fn push(&mut self, event: &KeyEvent, keymap: &KeyMap) -> Option<String> {
+        self.push_for_actions(event, keymap, &[])
+    }
+
+    pub fn push_for_actions(
+        &mut self,
+        event: &KeyEvent,
+        keymap: &KeyMap,
+        allowed_actions: &[&str],
+    ) -> Option<String> {
         self.pending.push(KeyStroke {
             code: match event.code {
                 KeyCode::Char(value) => KeyCode::Char(value.to_ascii_lowercase()),
@@ -131,6 +141,12 @@ impl KeySequenceMatcher {
         let mut has_prefix = false;
 
         for (action, sequences) in &keymap.bindings {
+            if !allowed_actions.is_empty()
+                && !allowed_actions.iter().any(|allowed| allowed == action)
+            {
+                continue;
+            }
+
             for sequence in sequences {
                 if sequence.0.starts_with(&self.pending) {
                     has_prefix = true;
@@ -181,6 +197,32 @@ mod tests {
                 &keymap
             ),
             Some("restart".into())
+        );
+    }
+
+    #[test]
+    fn scopes_sequences_to_allowed_actions() {
+        let mut config = BTreeMap::new();
+        config.insert("focus_next".into(), vec!["tab".into()]);
+        config.insert("menu".into(), vec!["tab m".into()]);
+        let keymap = KeyMap::from_config(&config).unwrap();
+        let mut matcher = KeySequenceMatcher::default();
+
+        assert_eq!(
+            matcher.push_for_actions(
+                &KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
+                &keymap,
+                &["menu"],
+            ),
+            None
+        );
+        assert_eq!(
+            matcher.push_for_actions(
+                &KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty()),
+                &keymap,
+                &["menu"],
+            ),
+            Some("menu".into())
         );
     }
 }

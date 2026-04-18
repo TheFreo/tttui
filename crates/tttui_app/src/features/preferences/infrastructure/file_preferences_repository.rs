@@ -83,20 +83,17 @@ fn built_in_themes() -> AppResult<BTreeMap<String, ThemeDefinition>> {
     [
         (
             "default",
-            include_str!("../../../../../assets/themes/default.toml"),
+            include_str!("../../../../assets/themes/default.toml"),
         ),
-        (
-            "nord",
-            include_str!("../../../../../assets/themes/nord.toml"),
-        ),
+        ("nord", include_str!("../../../../assets/themes/nord.toml")),
         (
             "catppuccin-mocha",
-            include_str!("../../../../../assets/themes/catppuccin-mocha.toml"),
+            include_str!("../../../../assets/themes/catppuccin-mocha.toml"),
         ),
     ]
     .into_iter()
-    .map(|(name, raw)| {
-        let theme =
+    .map(|(name, raw): (&str, &str)| {
+        let theme: ThemeDefinition =
             toml::from_str(raw).map_err(|error| AppError::ConfigParse(error.to_string()))?;
         Ok((name.to_string(), theme))
     })

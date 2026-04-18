@@ -84,6 +84,35 @@ impl ThemeDefinition {
     pub fn color(&self, value: &str) -> AppResult<Color> {
         parse_color(value)
     }
+
+    pub fn resolve(&self) -> AppResult<ResolvedTheme> {
+        Ok(ResolvedTheme {
+            text: self.color(&self.colors.text)?,
+            muted: self.color(&self.colors.muted)?,
+            correct: self.color(&self.colors.correct)?,
+            incorrect: self.color(&self.colors.incorrect)?,
+            untyped: self.color(&self.colors.untyped)?,
+            caret: self.color(&self.colors.caret)?,
+            accent: self.color(&self.colors.accent)?,
+            background: self.color(&self.colors.background)?,
+            selection: self.color(&self.colors.selection)?,
+            presentation: self.presentation.clone(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedTheme {
+    pub text: Color,
+    pub muted: Color,
+    pub correct: Color,
+    pub incorrect: Color,
+    pub untyped: Color,
+    pub caret: Color,
+    pub accent: Color,
+    pub background: Color,
+    pub selection: Color,
+    pub presentation: ThemePresentation,
 }
 
 pub fn parse_color(value: &str) -> AppResult<Color> {
