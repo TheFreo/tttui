@@ -11,7 +11,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Block, Paragraph};
 use ratatui::{Frame, Terminal};
 use tttui_core::{AppError, AppResult};
 
@@ -279,6 +279,10 @@ where
 
     fn render(&self, frame: &mut Frame) {
         let area = frame.area();
+        frame.render_widget(
+            Block::default().style(Style::default().bg(self.theme.background)),
+            area,
+        );
         match &self.screen {
             Screen::Home => render_home(frame, area, &self.home, &self.theme),
             Screen::Test(session) => render_test(frame, area, session, &self.theme),

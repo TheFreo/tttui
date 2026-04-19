@@ -1,5 +1,6 @@
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
+use ratatui::symbols::border;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Axis, Block, Borders, Chart, Dataset, Paragraph, Wrap};
 use ratatui::Frame;
@@ -232,7 +233,12 @@ fn render_target_line(
                     .add_modifier(Modifier::UNDERLINED),
                 None => Style::default().fg(theme.untyped),
             };
-            Span::styled(expected.to_string(), style)
+            let content = if index == session.input.len() && session.input.get(index).is_none() {
+                theme.presentation.caret_symbol.clone()
+            } else {
+                expected.to_string()
+            };
+            Span::styled(content, style)
         })
         .collect::<Vec<_>>();
 
@@ -241,7 +247,13 @@ fn render_target_line(
 
 fn optional_block(theme: &ResolvedTheme) -> Block<'static> {
     if theme.presentation.show_borders {
-        Block::default().borders(Borders::ALL)
+        let block = Block::default().borders(Borders::ALL);
+        match theme.presentation.border_style.as_str() {
+            "rounded" => block.border_set(border::ROUNDED),
+            "double" => block.border_set(border::DOUBLE),
+            "thick" => block.border_set(border::THICK),
+            _ => block,
+        }
     } else {
         Block::default()
     }
