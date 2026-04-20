@@ -1,52 +1,41 @@
 # Contributing
 
-Thank you for your interest in contributing to this project!
-
 ## Prerequisites
 
-- Python / Python 3
+- Rust toolchain
+- Cargo
 
 ## Commits
 
-- Make sure to use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
-- Make sure to include issue number in your commits
-  - bugfix(#3): fix something
-  - feat(#2): add <feature>
+- Use conventional commits.
+- Keep commits scoped to one concern where practical.
 
-## Enhancing Existing Functions
+## Development
 
-- You are welcome to improve existing functions.
-- Avoid introducing breaking changes.
+Run the standard checks before opening a change:
 
-## Adding New Functions
+```sh
+cargo fmt
+cargo check -p tttui
+cargo test -p tttui
+```
 
-- Open an issue to discuss your idea before starting work.
-- Do not add third-party dependencies to the core package to keep it lightweight.
+Run the app locally with:
 
-## Creating Add-ons
-
-- New add-ons and extensions are welcome!
+```sh
+cargo run --bin tttui
+```
 
 ## Project Structure
 
+```text
+crates/
+├── tttui_core/
+│   └── shared kernel types and errors
+└── tttui_app/
+    ├── config/
+    ├── features/preferences/
+    └── features/typing_test/
 ```
-tttui/
-├── bin/
-│   └── tttui.sh          # The main executable launch script.
-├── tttui/
-│   ├── __init__.py       # Main application loop and state management.
-│   ├── __main__.py       # Entry point for running as a module.
-│   ├── config.py         # Stores default themes and directory paths.
-│   ├── game.py           # Core game logic, state resets, and result calculations.
-│   ├── menu.py           # Handles menu navigation and logic.
-│   ├── storage.py        # Manages loading/saving of configs, PBs, and language files.
-│   └── ui.py             # All rendering logic (menus, test screen, results, graph).
-└── README.md
-```
-## Code Style
-Any code style will do.
 
-## Thank You
-
-We appreciate your contributions. You are awesome!
-
+Keep feature boundaries meaningful. Do not add empty layers or generic abstractions unless they remove real complexity.
