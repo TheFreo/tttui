@@ -105,11 +105,7 @@ impl TestSession {
         let correct_chars = self.correct_chars();
         let incorrect_chars = self.incorrect_chars();
         let typed_chars = self.typed_chars();
-        let history = self
-            .sample_history
-            .iter()
-            .map(|(_, value)| *value)
-            .collect::<Vec<_>>();
+        let history = self.sample_history.clone();
         let accuracy = if typed_chars == 0 {
             0.0
         } else {
@@ -141,15 +137,15 @@ fn wpm(chars: usize, duration: Duration) -> f64 {
     (chars as f64 / 5.0) / (duration.as_secs_f64() / 60.0)
 }
 
-fn consistency(history: &[f64], net_wpm: f64) -> f64 {
+fn consistency(history: &[(Duration, f64)], net_wpm: f64) -> f64 {
     if history.len() < 2 || net_wpm <= 0.0 {
         return 100.0;
     }
 
-    let mean = history.iter().sum::<f64>() / history.len() as f64;
+    let mean = history.iter().map(|(_, value)| value).sum::<f64>() / history.len() as f64;
     let variance = history
         .iter()
-        .map(|value| {
+        .map(|(_, value)| {
             let delta = value - mean;
             delta * delta
         })

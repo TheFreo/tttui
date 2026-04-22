@@ -432,6 +432,7 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
             Constraint::Min(8),
             Constraint::Length(2),
         ])
+        .horizontal_margin(2)
         .split(area);
 
     frame.render_widget(

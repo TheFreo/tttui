@@ -1,8 +1,8 @@
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
-use ratatui::symbols::border;
+use ratatui::symbols::{border, Marker};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Axis, Block, Borders, Chart, Dataset, Paragraph, Wrap};
+use ratatui::widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Wrap};
 use ratatui::Frame;
 
 use crate::features::preferences::domain::theme::ResolvedTheme;
@@ -13,10 +13,11 @@ pub fn render_test(frame: &mut Frame, area: Rect, session: &TestSession, theme: 
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2),
-            Constraint::Min(7),
-            Constraint::Length(2),
+            Constraint::Length(1),
+            Constraint::Min(5),
+            Constraint::Length(1),
         ])
+        .horizontal_margin(2)
         .split(area);
 
     let timer = match session.mode {
@@ -38,6 +39,11 @@ pub fn render_test(frame: &mut Frame, area: Rect, session: &TestSession, theme: 
         Span::styled(&session.language, Style::default().fg(theme.muted)),
         Span::styled("   ", Style::default()),
         Span::styled(timer, Style::default().fg(theme.muted)),
+        Span::styled("   ", Style::default()),
+        Span::styled(
+            format!("{:.0} wpm", session.current_net_wpm()),
+            Style::default().fg(theme.muted),
+        ),
     ]);
     frame.render_widget(
         Paragraph::new(header).alignment(Alignment::Center),
@@ -83,15 +89,16 @@ pub fn render_result(
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Length(5),
-            Constraint::Min(8),
             Constraint::Length(2),
+            Constraint::Length(4),
+            Constraint::Min(8),
+            Constraint::Length(1),
         ])
+        .horizontal_margin(2)
         .split(area);
 
     let title = if is_personal_best {
-        format!("{:.2} wpm  new personal best", result.net_wpm)
+        format!("{:.2} wpm  personal best", result.net_wpm)
     } else {
         format!("{:.2} wpm", result.net_wpm)
     };
@@ -125,34 +132,49 @@ pub fn render_result(
     );
 
     let graph_area = sections[2];
-    let max_wpm = result
-        .history
+    let data = smoothed_history(&result.history);
+    let max_wpm = data
         .iter()
-        .copied()
+        .map(|(_, value)| *value)
         .fold(0.0_f64, f64::max)
         .max(10.0);
-    let data = result
-        .history
-        .iter()
-        .enumerate()
-        .map(|(index, value)| (index as f64, *value))
-        .collect::<Vec<_>>();
-    let dataset = Dataset::default()
-        .style(Style::default().fg(theme.correct))
-        .data(&data);
-    let chart = Chart::new(vec![dataset])
-        .x_axis(
-            Axis::default()
-                .bounds([0.0, data.len().saturating_sub(1).max(1) as f64])
-                .style(Style::default().fg(theme.muted)),
-        )
-        .y_axis(
-            Axis::default()
-                .bounds([0.0, max_wpm.ceil()])
-                .style(Style::default().fg(theme.muted)),
-        )
-        .block(optional_block(theme));
-    frame.render_widget(chart, graph_area);
+    let rounded_max_wpm = round_axis_max(max_wpm);
+    let duration = result.duration.as_secs_f64().max(1.0);
+    if data.len() < 2 {
+        frame.render_widget(
+            Paragraph::new("not enough samples for graph")
+                .style(Style::default().fg(theme.muted))
+                .alignment(Alignment::Center),
+            centered_text_area(graph_area, 1),
+        );
+    } else {
+        let dataset = Dataset::default()
+            .style(Style::default().fg(theme.correct))
+            .marker(Marker::Braille)
+            .graph_type(GraphType::Line)
+            .data(&data);
+        let chart = Chart::new(vec![dataset])
+            .x_axis(
+                Axis::default()
+                    .bounds([0.0, duration])
+                    .labels(vec![
+                        Line::from("0s"),
+                        Line::from(format!("{duration:.0}s")),
+                    ])
+                    .style(Style::default().fg(theme.muted)),
+            )
+            .y_axis(
+                Axis::default()
+                    .bounds([0.0, rounded_max_wpm])
+                    .labels(vec![
+                        Line::from("0"),
+                        Line::from(format!("{rounded_max_wpm:.0}")),
+                    ])
+                    .style(Style::default().fg(theme.muted)),
+            )
+            .block(optional_block(theme));
+        frame.render_widget(chart, graph_area);
+    }
 
     frame.render_widget(
         Paragraph::new("enter retry   tab menu   q quit")
@@ -256,5 +278,58 @@ fn optional_block(theme: &ResolvedTheme) -> Block<'static> {
         }
     } else {
         Block::default()
+    }
+}
+
+fn smoothed_history(history: &[(std::time::Duration, f64)]) -> Vec<(f64, f64)> {
+    if history.is_empty() {
+        return Vec::new();
+    }
+
+    let window = (history.len() / 6).max(1);
+    history
+        .iter()
+        .enumerate()
+        .map(|(index, (time, _))| {
+            let start = index.saturating_sub(window / 2);
+            let end = (index + window / 2 + 1).min(history.len());
+            let average = history[start..end]
+                .iter()
+                .map(|(_, value)| value)
+                .sum::<f64>()
+                / (end - start) as f64;
+            (time.as_secs_f64(), average)
+        })
+        .collect()
+}
+
+fn round_axis_max(value: f64) -> f64 {
+    (value / 10.0).ceil().max(1.0) * 10.0
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+
+    #[test]
+    fn smooths_history_without_losing_time_axis() {
+        let history = vec![
+            (Duration::from_secs(1), 20.0),
+            (Duration::from_secs(2), 40.0),
+            (Duration::from_secs(3), 60.0),
+        ];
+        let smoothed = smoothed_history(&history);
+
+        assert_eq!(smoothed.len(), 3);
+        assert_eq!(smoothed[0].0, 1.0);
+        assert_eq!(smoothed[2].0, 3.0);
+    }
+
+    #[test]
+    fn rounds_graph_axis_to_tens() {
+        assert_eq!(round_axis_max(1.0), 10.0);
+        assert_eq!(round_axis_max(46.0), 50.0);
     }
 }

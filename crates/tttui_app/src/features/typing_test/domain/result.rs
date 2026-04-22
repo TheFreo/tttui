@@ -10,7 +10,7 @@ pub struct TestResult {
     pub correct_chars: usize,
     pub incorrect_chars: usize,
     pub remaining_chars: usize,
-    pub history: Vec<f64>,
+    pub history: Vec<(Duration, f64)>,
 }
 
 impl TestResult {
