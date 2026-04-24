@@ -97,7 +97,10 @@ impl TestSession {
     pub fn is_complete(&self) -> bool {
         match self.mode {
             TestMode::Time(duration) => self.elapsed >= Duration::from_secs(duration as u64),
-            TestMode::Words(_) | TestMode::Quote => self.input.len() == self.target.len(),
+            TestMode::Words(_)
+            | TestMode::Punctuation(_)
+            | TestMode::Numbers(_)
+            | TestMode::Quote => self.input.len() == self.target.len(),
         }
     }
 
