@@ -4,7 +4,7 @@
 
 ## Features
 
-- Time, words, and quote modes
+- Time, words, punctuation, numbers, and quote modes
 - Compact selector-first home screen
 - Configurable key sequences
 - User-editable TOML themes with color and presentation overrides
@@ -71,6 +71,8 @@ backspace = ["backspace"]
 ```
 
 Keybindings support multi-key sequences such as `"tab enter"` and modified keys such as `"ctrl+r"`.
+
+Supported modes are `time`, `words`, `punctuation`, `numbers`, and `quote`. The word-count selector is reused by `words`, `punctuation`, and `numbers`.
 
 ## Themes
 

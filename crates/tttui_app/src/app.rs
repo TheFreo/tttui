@@ -321,7 +321,9 @@ impl HomeState {
     fn new(config: &AppConfig, languages: Vec<String>, themes: Vec<String>) -> Self {
         let mode_index = match config.defaults.mode.as_str() {
             "words" => 1,
-            "quote" => 2,
+            "punctuation" => 2,
+            "numbers" => 3,
+            "quote" => 4,
             _ => 0,
         };
         let duration_index = index_or_zero(&config.options.durations, config.defaults.duration);
@@ -362,13 +364,13 @@ impl HomeState {
 
     fn cycle(&mut self, delta: isize) {
         match self.focus {
-            0 => self.mode_index = cycle_index(self.mode_index, 3, delta),
+            0 => self.mode_index = cycle_index(self.mode_index, 5, delta),
             1 => match self.mode_index {
                 0 => {
                     self.duration_index =
                         cycle_index(self.duration_index, self.durations.len(), delta)
                 }
-                1 => {
+                1 | 2 | 3 => {
                     self.word_count_index =
                         cycle_index(self.word_count_index, self.word_counts.len(), delta)
                 }
@@ -385,7 +387,9 @@ impl HomeState {
     fn mode_name(&self) -> &'static str {
         match self.mode_index {
             1 => "words",
-            2 => "quote",
+            2 => "punctuation",
+            3 => "numbers",
+            4 => "quote",
             _ => "time",
         }
     }
@@ -393,7 +397,9 @@ impl HomeState {
     fn current_mode(&self) -> TestMode {
         match self.mode_index {
             1 => TestMode::Words(self.current_word_count()),
-            2 => TestMode::Quote,
+            2 => TestMode::Punctuation(self.current_word_count()),
+            3 => TestMode::Numbers(self.current_word_count()),
+            4 => TestMode::Quote,
             _ => TestMode::Time(self.current_duration()),
         }
     }
@@ -416,8 +422,8 @@ impl HomeState {
 
     fn length_label(&self) -> String {
         match self.mode_index {
-            1 => self.current_word_count().to_string(),
-            2 => "quote".into(),
+            1 | 2 | 3 => self.current_word_count().to_string(),
+            4 => "quote".into(),
             _ => self.current_duration().to_string(),
         }
     }
