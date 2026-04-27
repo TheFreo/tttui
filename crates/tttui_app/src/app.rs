@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::io;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use crossterm::execute;
@@ -15,7 +15,7 @@ use ratatui::widgets::{Block, Paragraph};
 use ratatui::{Frame, Terminal};
 use tttui_core::{AppError, AppResult};
 
-use crate::config::app_config::{AppConfig, PersonalBest};
+use crate::config::app_config::{AppConfig, PersonalBest, SessionHistoryEntry};
 use crate::features::preferences::application::ports::PreferencesRepository;
 use crate::features::preferences::domain::keybinding::{KeyMap, KeySequenceMatcher};
 use crate::features::preferences::domain::theme::{ResolvedTheme, ThemeDefinition};
@@ -117,6 +117,15 @@ where
                         .get(&key)
                         .map(|best| result.net_wpm > best.net_wpm)
                         .unwrap_or(true);
+                    self.config.record_session(SessionHistoryEntry {
+                        completed_at_unix: completed_at_unix(),
+                        mode: session.mode.label(),
+                        language: session.language.clone(),
+                        net_wpm: result.net_wpm,
+                        raw_wpm: result.raw_wpm,
+                        accuracy: result.accuracy,
+                        duration_secs: result.duration.as_secs_f64(),
+                    });
                     if is_personal_best {
                         self.config.personal_bests.insert(
                             key,
@@ -126,8 +135,8 @@ where
                                 accuracy: result.accuracy,
                             },
                         );
-                        preferences.save_config(&self.config)?;
                     }
+                    preferences.save_config(&self.config)?;
                     self.screen = Screen::Result {
                         result,
                         is_personal_best,
@@ -508,4 +517,11 @@ fn index_or_zero<T: PartialEq>(values: &[T], expected: T) -> usize {
         .iter()
         .position(|value| *value == expected)
         .unwrap_or(0)
+}
+
+fn completed_at_unix() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }

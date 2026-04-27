@@ -12,6 +12,8 @@ pub struct AppConfig {
     pub keybindings: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     pub personal_bests: BTreeMap<String, PersonalBest>,
+    #[serde(default)]
+    pub session_history: Vec<SessionHistoryEntry>,
 }
 
 impl Default for AppConfig {
@@ -32,6 +34,7 @@ impl Default for AppConfig {
             options: Options::default(),
             keybindings,
             personal_bests: BTreeMap::new(),
+            session_history: Vec::new(),
         }
     }
 }
@@ -68,6 +71,8 @@ pub struct Options {
     pub durations: Vec<u16>,
     #[serde(default = "default_word_counts")]
     pub word_counts: Vec<u16>,
+    #[serde(default = "default_history_limit")]
+    pub history_limit: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,12 +82,31 @@ pub struct PersonalBest {
     pub accuracy: f64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionHistoryEntry {
+    pub completed_at_unix: u64,
+    pub mode: String,
+    pub language: String,
+    pub net_wpm: f64,
+    pub raw_wpm: f64,
+    pub accuracy: f64,
+    pub duration_secs: f64,
+}
+
 impl Default for Options {
     fn default() -> Self {
         Self {
             durations: default_durations(),
             word_counts: default_word_counts(),
+            history_limit: default_history_limit(),
         }
+    }
+}
+
+impl AppConfig {
+    pub fn record_session(&mut self, entry: SessionHistoryEntry) {
+        self.session_history.insert(0, entry);
+        self.session_history.truncate(self.options.history_limit);
     }
 }
 
@@ -112,4 +136,39 @@ fn default_durations() -> Vec<u16> {
 
 fn default_word_counts() -> Vec<u16> {
     vec![10, 25, 50, 100]
+}
+
+fn default_history_limit() -> usize {
+    20
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn session(index: u64) -> SessionHistoryEntry {
+        SessionHistoryEntry {
+            completed_at_unix: index,
+            mode: "words 25".into(),
+            language: "english".into(),
+            net_wpm: 80.0,
+            raw_wpm: 82.0,
+            accuracy: 98.0,
+            duration_secs: 30.0,
+        }
+    }
+
+    #[test]
+    fn session_history_is_newest_first_and_bounded() {
+        let mut config = AppConfig::default();
+        config.options.history_limit = 2;
+
+        config.record_session(session(1));
+        config.record_session(session(2));
+        config.record_session(session(3));
+
+        assert_eq!(config.session_history.len(), 2);
+        assert_eq!(config.session_history[0].completed_at_unix, 3);
+        assert_eq!(config.session_history[1].completed_at_unix, 2);
+    }
 }
