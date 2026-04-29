@@ -27,6 +27,7 @@ impl Default for AppConfig {
         keybindings.insert("cycle_previous".into(), vec!["left".into(), "h".into()]);
         keybindings.insert("restart".into(), vec!["tab enter".into()]);
         keybindings.insert("menu".into(), vec!["tab m".into()]);
+        keybindings.insert("history".into(), vec!["g".into()]);
         keybindings.insert("backspace".into(), vec!["backspace".into()]);
 
         Self {
@@ -108,6 +109,12 @@ impl AppConfig {
         self.session_history.insert(0, entry);
         self.session_history.truncate(self.options.history_limit);
     }
+
+    pub fn merge_missing_keybindings(&mut self) {
+        for (action, bindings) in Self::default().keybindings {
+            self.keybindings.entry(action).or_insert(bindings);
+        }
+    }
 }
 
 fn default_mode() -> String {
@@ -170,5 +177,17 @@ mod tests {
         assert_eq!(config.session_history.len(), 2);
         assert_eq!(config.session_history[0].completed_at_unix, 3);
         assert_eq!(config.session_history[1].completed_at_unix, 2);
+    }
+
+    #[test]
+    fn missing_keybindings_are_added_without_overwriting_custom_values() {
+        let mut config = AppConfig::default();
+        config.keybindings.remove("history");
+        config.keybindings.insert("quit".into(), vec!["x".into()]);
+
+        config.merge_missing_keybindings();
+
+        assert_eq!(config.keybindings["history"], vec!["g"]);
+        assert_eq!(config.keybindings["quit"], vec!["x"]);
     }
 }

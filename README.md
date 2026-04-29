@@ -10,6 +10,7 @@
 - User-editable TOML themes with color and presentation overrides
 - Bundled and user-provided languages / quotes
 - Personal best tracking
+- Bounded recent session history
 - Result stats and WPM graph
 - Layout that remains usable at `80x24`
 
@@ -57,6 +58,7 @@ theme = "default"
 [options]
 durations = [15, 30, 60, 120]
 word_counts = [10, 25, 50, 100]
+history_limit = 20
 
 [keybindings]
 quit = ["q"]
@@ -67,12 +69,15 @@ cycle_next = ["right", "l"]
 cycle_previous = ["left", "h"]
 restart = ["tab enter"]
 menu = ["tab m"]
+history = ["g"]
 backspace = ["backspace"]
 ```
 
 Keybindings support multi-key sequences such as `"tab enter"` and modified keys such as `"ctrl+r"`.
 
 Supported modes are `time`, `words`, `punctuation`, `numbers`, and `quote`. The word-count selector is reused by `words`, `punctuation`, and `numbers`.
+
+Press `g` from the home screen to open recent history. Completed runs are kept newest-first in `config.toml`, bounded by `history_limit`.
 
 ## Themes
 

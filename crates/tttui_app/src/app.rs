@@ -20,6 +20,7 @@ use crate::features::preferences::application::ports::PreferencesRepository;
 use crate::features::preferences::domain::keybinding::{KeyMap, KeySequenceMatcher};
 use crate::features::preferences::domain::theme::{ResolvedTheme, ThemeDefinition};
 use crate::features::preferences::infrastructure::file_preferences_repository::FilePreferencesRepository;
+use crate::features::session_history::presentation::render::render_history;
 use crate::features::typing_test::application::ports::ContentRepository;
 use crate::features::typing_test::application::use_cases::StartTypingTest;
 use crate::features::typing_test::domain::result::TestResult;
@@ -172,6 +173,7 @@ where
             Screen::Home => self.handle_home_key(key, preferences),
             Screen::Test(_) => self.handle_test_key(key),
             Screen::Result { .. } => self.handle_result_key(key, preferences),
+            Screen::History => self.handle_history_key(key),
         }
     }
 
@@ -189,6 +191,7 @@ where
                 "cycle_next",
                 "cycle_previous",
                 "start",
+                "history",
                 "quit",
             ],
         ) {
@@ -198,6 +201,7 @@ where
                 "cycle_next" => self.home.cycle_next(),
                 "cycle_previous" => self.home.cycle_previous(),
                 "start" => self.start_test(preferences)?,
+                "history" => self.screen = Screen::History,
                 "quit" => return Ok(false),
                 _ => {}
             }
@@ -256,6 +260,20 @@ where
         Ok(true)
     }
 
+    fn handle_history_key(&mut self, key: KeyEvent) -> AppResult<bool> {
+        if let Some(action) =
+            self.matcher
+                .push_for_actions(&key, &self.keymap, &["focus_next", "quit"])
+        {
+            match action.as_str() {
+                "focus_next" => self.screen = Screen::Home,
+                "quit" => return Ok(false),
+                _ => {}
+            }
+        }
+        Ok(true)
+    }
+
     fn start_test(&mut self, preferences: &impl PreferencesRepository) -> AppResult<()> {
         self.config.defaults.mode = self.home.mode_name().into();
         self.config.defaults.duration = self.home.current_duration();
@@ -299,6 +317,9 @@ where
                 result,
                 is_personal_best,
             } => render_result(frame, area, result, *is_personal_best, &self.theme),
+            Screen::History => {
+                render_history(frame, area, &self.config.session_history, &self.theme)
+            }
         }
     }
 }
@@ -310,6 +331,7 @@ enum Screen {
         result: TestResult,
         is_personal_best: bool,
     },
+    History,
 }
 
 #[derive(Debug)]
@@ -488,7 +510,7 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
     );
 
     frame.render_widget(
-        Paragraph::new("tab focus   left/right change   enter start")
+        Paragraph::new("tab focus   left/right change   enter start   g history")
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme.muted)),
         sections[3],

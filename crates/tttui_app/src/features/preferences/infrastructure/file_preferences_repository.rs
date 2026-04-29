@@ -47,7 +47,10 @@ impl PreferencesRepository for FilePreferencesRepository {
         }
 
         let raw = fs::read_to_string(path)?;
-        toml::from_str(&raw).map_err(|error| AppError::ConfigParse(error.to_string()))
+        let mut config: AppConfig =
+            toml::from_str(&raw).map_err(|error| AppError::ConfigParse(error.to_string()))?;
+        config.merge_missing_keybindings();
+        Ok(config)
     }
 
     fn save_config(&self, config: &AppConfig) -> AppResult<()> {
