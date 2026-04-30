@@ -255,12 +255,7 @@ fn render_target_line(
                     .add_modifier(Modifier::UNDERLINED),
                 None => Style::default().fg(theme.untyped),
             };
-            let content = if index == session.input.len() && session.input.get(index).is_none() {
-                theme.presentation.caret_symbol.clone()
-            } else {
-                expected.to_string()
-            };
-            Span::styled(content, style)
+            Span::styled(expected.to_string(), style)
         })
         .collect::<Vec<_>>();
 
