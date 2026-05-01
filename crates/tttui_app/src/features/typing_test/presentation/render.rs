@@ -148,28 +148,38 @@ pub fn render_result(
             centered_text_area(graph_area, 1),
         );
     } else {
-        let dataset = Dataset::default()
-            .style(Style::default().fg(theme.correct))
-            .marker(Marker::Braille)
-            .graph_type(GraphType::Line)
-            .data(&data);
-        let chart = Chart::new(vec![dataset])
+        let y_ticks = wpm_ticks(rounded_max_wpm, graph_area.height);
+        let x_ticks = time_ticks(duration, graph_area.width);
+        let guide_lines = guide_line_data(&y_ticks, duration);
+        let mut datasets = guide_datasets(&guide_lines, theme);
+        datasets.push(
+            Dataset::default()
+                .style(Style::default().fg(theme.correct))
+                .marker(Marker::Braille)
+                .graph_type(GraphType::Line)
+                .data(&data),
+        );
+        let chart = Chart::new(datasets)
             .x_axis(
                 Axis::default()
                     .bounds([0.0, duration])
-                    .labels(vec![
-                        Line::from("0s"),
-                        Line::from(format!("{duration:.0}s")),
-                    ])
+                    .labels(
+                        x_ticks
+                            .iter()
+                            .map(|value| Line::from(format!("{value:.0}s")))
+                            .collect::<Vec<_>>(),
+                    )
                     .style(Style::default().fg(theme.muted)),
             )
             .y_axis(
                 Axis::default()
                     .bounds([0.0, rounded_max_wpm])
-                    .labels(vec![
-                        Line::from("0"),
-                        Line::from(format!("{rounded_max_wpm:.0}")),
-                    ])
+                    .labels(
+                        y_ticks
+                            .iter()
+                            .map(|value| Line::from(format!("{value:.0}")))
+                            .collect::<Vec<_>>(),
+                    )
                     .style(Style::default().fg(theme.muted)),
             )
             .block(optional_block(theme));
@@ -302,6 +312,62 @@ fn round_axis_max(value: f64) -> f64 {
     (value / 10.0).ceil().max(1.0) * 10.0
 }
 
+fn wpm_ticks(max_wpm: f64, graph_height: u16) -> Vec<f64> {
+    let max_labels = graph_height.saturating_sub(1).clamp(2, 7) as usize;
+    let step = [10.0, 20.0, 25.0, 50.0, 100.0, 200.0]
+        .into_iter()
+        .find(|candidate| ((max_wpm / candidate).ceil() as usize + 1) <= max_labels)
+        .unwrap_or(200.0);
+    evenly_spaced_ticks(max_wpm, step)
+}
+
+fn time_ticks(duration: f64, graph_width: u16) -> Vec<f64> {
+    let max_labels = (graph_width / 10).clamp(2, 7) as usize;
+    let step = [1.0, 2.0, 5.0, 10.0, 15.0, 20.0, 30.0, 60.0, 120.0]
+        .into_iter()
+        .find(|candidate| ((duration / candidate).ceil() as usize + 1) <= max_labels)
+        .unwrap_or(120.0);
+    evenly_spaced_ticks(duration, step)
+}
+
+fn evenly_spaced_ticks(max_value: f64, step: f64) -> Vec<f64> {
+    let rounded_max = (max_value / step).ceil() * step;
+    let mut ticks = Vec::new();
+    let mut value = 0.0;
+
+    while value < rounded_max {
+        ticks.push(value);
+        value += step;
+    }
+    ticks.push(rounded_max);
+    ticks
+}
+
+fn guide_line_data(ticks: &[f64], duration: f64) -> Vec<[(f64, f64); 2]> {
+    ticks
+        .iter()
+        .copied()
+        .filter(|value| *value > 0.0 && *value < *ticks.last().unwrap_or(&0.0))
+        .map(|value| [(0.0, value), (duration, value)])
+        .collect()
+}
+
+fn guide_datasets<'a>(
+    guide_lines: &'a [[(f64, f64); 2]],
+    theme: &ResolvedTheme,
+) -> Vec<Dataset<'a>> {
+    guide_lines
+        .iter()
+        .map(|line| {
+            Dataset::default()
+                .style(Style::default().fg(theme.muted).add_modifier(Modifier::DIM))
+                .marker(Marker::Dot)
+                .graph_type(GraphType::Line)
+                .data(line)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -326,5 +392,26 @@ mod tests {
     fn rounds_graph_axis_to_tens() {
         assert_eq!(round_axis_max(1.0), 10.0);
         assert_eq!(round_axis_max(46.0), 50.0);
+    }
+
+    #[test]
+    fn uses_readable_wpm_ticks_when_possible() {
+        assert_eq!(
+            wpm_ticks(120.0, 12),
+            vec![0.0, 20.0, 40.0, 60.0, 80.0, 100.0, 120.0]
+        );
+        assert_eq!(wpm_ticks(180.0, 8), vec![0.0, 50.0, 100.0, 150.0, 200.0]);
+    }
+
+    #[test]
+    fn uses_time_ticks_based_on_duration() {
+        assert_eq!(
+            time_ticks(30.0, 80),
+            vec![0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
+        );
+        assert_eq!(
+            time_ticks(120.0, 80),
+            vec![0.0, 20.0, 40.0, 60.0, 80.0, 100.0, 120.0]
+        );
     }
 }
