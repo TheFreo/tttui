@@ -25,9 +25,14 @@ impl Default for AppConfig {
         keybindings.insert("focus_previous".into(), vec!["shift+tab".into()]);
         keybindings.insert("cycle_next".into(), vec!["right".into(), "l".into()]);
         keybindings.insert("cycle_previous".into(), vec!["left".into(), "h".into()]);
+        keybindings.insert("focus_mode".into(), vec!["1".into()]);
+        keybindings.insert("focus_length".into(), vec!["2".into()]);
+        keybindings.insert("focus_language".into(), vec!["3".into()]);
+        keybindings.insert("focus_theme".into(), vec!["4".into()]);
         keybindings.insert("restart".into(), vec!["tab enter".into()]);
         keybindings.insert("menu".into(), vec!["tab m".into()]);
         keybindings.insert("history".into(), vec!["g".into()]);
+        keybindings.insert("cancel".into(), vec!["esc".into()]);
         keybindings.insert("backspace".into(), vec!["backspace".into()]);
 
         Self {

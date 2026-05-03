@@ -190,7 +190,12 @@ where
                 "focus_previous",
                 "cycle_next",
                 "cycle_previous",
+                "focus_mode",
+                "focus_length",
+                "focus_language",
+                "focus_theme",
                 "start",
+                "cancel",
                 "history",
                 "quit",
             ],
@@ -200,7 +205,14 @@ where
                 "focus_previous" => self.home.focus_previous(),
                 "cycle_next" => self.home.cycle_next(),
                 "cycle_previous" => self.home.cycle_previous(),
+                "focus_mode" => self.home.focus(Field::Mode),
+                "focus_length" => self.home.focus(Field::Length),
+                "focus_language" => self.home.focus(Field::Language),
+                "focus_theme" => self.home.focus(Field::Theme),
+                "start" if self.home.picker_index().is_some() => self.home.confirm_mode_picker(),
+                "start" if self.home.is_mode_focused() => self.home.open_mode_picker(),
                 "start" => self.start_test(preferences)?,
+                "cancel" => self.home.close_mode_picker(),
                 "history" => self.screen = Screen::History,
                 "quit" => return Ok(false),
                 _ => {}
@@ -336,8 +348,9 @@ enum Screen {
 
 #[derive(Debug)]
 struct HomeState {
-    focus: usize,
+    focus: Field,
     mode_index: usize,
+    mode_picker_index: Option<usize>,
     duration_index: usize,
     word_count_index: usize,
     language_index: usize,
@@ -364,8 +377,9 @@ impl HomeState {
         let theme_index = index_or_zero(&themes, config.defaults.theme.clone());
 
         Self {
-            focus: 0,
+            focus: Field::Mode,
             mode_index,
+            mode_picker_index: None,
             duration_index,
             word_count_index,
             language_index,
@@ -378,11 +392,15 @@ impl HomeState {
     }
 
     fn focus_next(&mut self) {
-        self.focus = (self.focus + 1) % 4;
+        self.focus = self.focus.next();
     }
 
     fn focus_previous(&mut self) {
-        self.focus = self.focus.checked_sub(1).unwrap_or(3);
+        self.focus = self.focus.previous();
+    }
+
+    fn focus(&mut self, field: Field) {
+        self.focus = field;
     }
 
     fn cycle_next(&mut self) {
@@ -394,9 +412,14 @@ impl HomeState {
     }
 
     fn cycle(&mut self, delta: isize) {
+        if let Some(index) = self.mode_picker_index {
+            self.mode_picker_index = Some(cycle_index(index, 5, delta));
+            return;
+        }
+
         match self.focus {
-            0 => self.mode_index = cycle_index(self.mode_index, 5, delta),
-            1 => match self.mode_index {
+            Field::Mode => {}
+            Field::Length => match self.mode_index {
                 0 => {
                     self.duration_index =
                         cycle_index(self.duration_index, self.durations.len(), delta)
@@ -407,12 +430,35 @@ impl HomeState {
                 }
                 _ => {}
             },
-            2 => {
+            Field::Language => {
                 self.language_index = cycle_index(self.language_index, self.languages.len(), delta)
             }
-            3 => self.theme_index = cycle_index(self.theme_index, self.themes.len(), delta),
-            _ => {}
+            Field::Theme => {
+                self.theme_index = cycle_index(self.theme_index, self.themes.len(), delta)
+            }
         }
+    }
+
+    fn is_mode_focused(&self) -> bool {
+        self.focus == Field::Mode
+    }
+
+    fn open_mode_picker(&mut self) {
+        self.mode_picker_index = Some(self.mode_index);
+    }
+
+    fn confirm_mode_picker(&mut self) {
+        if let Some(index) = self.mode_picker_index.take() {
+            self.mode_index = index;
+        }
+    }
+
+    fn close_mode_picker(&mut self) {
+        self.mode_picker_index = None;
+    }
+
+    fn picker_index(&self) -> Option<usize> {
+        self.mode_picker_index
     }
 
     fn mode_name(&self) -> &'static str {
@@ -460,13 +506,41 @@ impl HomeState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Field {
+    Mode,
+    Length,
+    Language,
+    Theme,
+}
+
+impl Field {
+    fn next(self) -> Self {
+        match self {
+            Self::Mode => Self::Length,
+            Self::Length => Self::Language,
+            Self::Language => Self::Theme,
+            Self::Theme => Self::Mode,
+        }
+    }
+
+    fn previous(self) -> Self {
+        match self {
+            Self::Mode => Self::Theme,
+            Self::Length => Self::Mode,
+            Self::Language => Self::Length,
+            Self::Theme => Self::Language,
+        }
+    }
+}
+
 fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &ResolvedTheme) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(8),
-            Constraint::Length(3),
-            Constraint::Min(8),
+            Constraint::Min(5),
+            Constraint::Length(7),
+            Constraint::Min(5),
             Constraint::Length(2),
         ])
         .horizontal_margin(2)
@@ -481,36 +555,51 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
         centered_line(sections[0]),
     );
 
-    let labels = [
-        home.mode_name().to_string(),
-        home.length_label(),
-        home.current_language().to_string(),
-        home.current_theme().to_string(),
+    let length_label = home.length_label();
+    let lines = vec![
+        field_line(
+            "1",
+            "mode",
+            home.mode_name(),
+            home.focus == Field::Mode,
+            theme,
+        ),
+        field_line(
+            "2",
+            "length",
+            &length_label,
+            home.focus == Field::Length,
+            theme,
+        ),
+        field_line(
+            "3",
+            "language",
+            home.current_language(),
+            home.focus == Field::Language,
+            theme,
+        ),
+        field_line(
+            "4",
+            "theme",
+            home.current_theme(),
+            home.focus == Field::Theme,
+            theme,
+        ),
     ];
-    let mut spans = Vec::new();
-    for (index, label) in labels.into_iter().enumerate() {
-        if index > 0 {
-            spans.push(Span::styled(
-                theme.presentation.selector_separator.clone(),
-                Style::default().fg(theme.muted),
-            ));
-        }
-        let style = if index == home.focus {
-            Style::default()
-                .fg(theme.selection)
-                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
-        } else {
-            Style::default().fg(theme.text)
-        };
-        spans.push(Span::styled(label, style));
-    }
     frame.render_widget(
-        Paragraph::new(Line::from(spans)).alignment(Alignment::Center),
+        Paragraph::new(lines).alignment(Alignment::Center),
         sections[1],
     );
 
+    if let Some(index) = home.picker_index() {
+        frame.render_widget(
+            Paragraph::new(mode_picker_lines(index, theme)).alignment(Alignment::Center),
+            centered_block(sections[2], 5),
+        );
+    }
+
     frame.render_widget(
-        Paragraph::new("tab focus   left/right change   enter start   g history")
+        Paragraph::new("1-4 focus   tab next   left/right change   enter select/start")
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme.muted)),
         sections[3],
@@ -524,6 +613,55 @@ fn centered_line(area: Rect) -> Rect {
         width: area.width,
         height: 1,
     }
+}
+
+fn centered_block(area: Rect, height: u16) -> Rect {
+    Rect {
+        x: area.x,
+        y: area.y + area.height.saturating_sub(height) / 2,
+        width: area.width,
+        height: area.height.min(height),
+    }
+}
+
+fn field_line<'a>(
+    shortcut: &'a str,
+    label: &'a str,
+    value: &'a str,
+    focused: bool,
+    theme: &ResolvedTheme,
+) -> Line<'a> {
+    let value_style = if focused {
+        Style::default()
+            .fg(theme.selection)
+            .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+    } else {
+        Style::default().fg(theme.text)
+    };
+    Line::from(vec![
+        Span::styled(shortcut, Style::default().fg(theme.muted)),
+        Span::raw("  "),
+        Span::styled(format!("{label:<8}"), Style::default().fg(theme.muted)),
+        Span::styled(value, value_style),
+    ])
+}
+
+fn mode_picker_lines(index: usize, theme: &ResolvedTheme) -> Vec<Line<'static>> {
+    ["time", "words", "punctuation", "numbers", "quote"]
+        .into_iter()
+        .enumerate()
+        .map(|(current, mode)| {
+            let prefix = if current == index { "> " } else { "  " };
+            let style = if current == index {
+                Style::default()
+                    .fg(theme.selection)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(theme.text)
+            };
+            Line::from(Span::styled(format!("{prefix}{mode}"), style))
+        })
+        .collect()
 }
 
 fn cycle_index(index: usize, len: usize, delta: isize) -> usize {
