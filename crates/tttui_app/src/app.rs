@@ -538,9 +538,9 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(5),
-            Constraint::Length(7),
-            Constraint::Min(5),
+            Constraint::Length(4),
+            Constraint::Length(9),
+            Constraint::Min(7),
             Constraint::Length(2),
         ])
         .horizontal_margin(2)
@@ -564,6 +564,7 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
             home.focus == Field::Mode,
             theme,
         ),
+        Line::from(""),
         field_line(
             "2",
             "length",
@@ -571,6 +572,7 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
             home.focus == Field::Length,
             theme,
         ),
+        Line::from(""),
         field_line(
             "3",
             "language",
@@ -578,6 +580,7 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
             home.focus == Field::Language,
             theme,
         ),
+        Line::from(""),
         field_line(
             "4",
             "theme",
@@ -594,7 +597,7 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
     if let Some(index) = home.picker_index() {
         frame.render_widget(
             Paragraph::new(mode_picker_lines(index, theme)).alignment(Alignment::Center),
-            centered_block(sections[2], 5),
+            centered_block(sections[2], 7),
         );
     }
 
@@ -640,28 +643,34 @@ fn field_line<'a>(
     };
     Line::from(vec![
         Span::styled(shortcut, Style::default().fg(theme.muted)),
-        Span::raw("  "),
-        Span::styled(format!("{label:<8}"), Style::default().fg(theme.muted)),
+        Span::raw("    "),
+        Span::styled(format!("{label:<10}"), Style::default().fg(theme.muted)),
         Span::styled(value, value_style),
     ])
 }
 
 fn mode_picker_lines(index: usize, theme: &ResolvedTheme) -> Vec<Line<'static>> {
-    ["time", "words", "punctuation", "numbers", "quote"]
-        .into_iter()
-        .enumerate()
-        .map(|(current, mode)| {
-            let prefix = if current == index { "> " } else { "  " };
-            let style = if current == index {
-                Style::default()
-                    .fg(theme.selection)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(theme.text)
-            };
-            Line::from(Span::styled(format!("{prefix}{mode}"), style))
-        })
-        .collect()
+    let mut lines = vec![Line::from(Span::styled(
+        "select mode",
+        Style::default().fg(theme.muted),
+    ))];
+    lines.extend(
+        ["time", "words", "punctuation", "numbers", "quote"]
+            .into_iter()
+            .enumerate()
+            .map(|(current, mode)| {
+                let prefix = if current == index { "> " } else { "  " };
+                let style = if current == index {
+                    Style::default()
+                        .fg(theme.selection)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(theme.text)
+                };
+                Line::from(Span::styled(format!("{prefix}{mode}"), style))
+            }),
+    );
+    lines
 }
 
 fn cycle_index(index: usize, len: usize, delta: isize) -> usize {
