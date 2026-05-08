@@ -25,6 +25,8 @@ impl Default for AppConfig {
         keybindings.insert("focus_previous".into(), vec!["shift+tab".into()]);
         keybindings.insert("cycle_next".into(), vec!["right".into(), "l".into()]);
         keybindings.insert("cycle_previous".into(), vec!["left".into(), "h".into()]);
+        keybindings.insert("picker_next".into(), vec!["down".into(), "j".into()]);
+        keybindings.insert("picker_previous".into(), vec!["up".into(), "k".into()]);
         keybindings.insert("focus_mode".into(), vec!["1".into()]);
         keybindings.insert("focus_length".into(), vec!["2".into()]);
         keybindings.insert("focus_language".into(), vec!["3".into()]);

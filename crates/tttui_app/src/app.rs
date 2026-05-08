@@ -11,7 +11,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::{Frame, Terminal};
 use tttui_core::{AppError, AppResult};
 
@@ -190,6 +190,8 @@ where
                 "focus_previous",
                 "cycle_next",
                 "cycle_previous",
+                "picker_next",
+                "picker_previous",
                 "focus_mode",
                 "focus_length",
                 "focus_language",
@@ -203,16 +205,32 @@ where
             match action.as_str() {
                 "focus_next" => self.home.focus_next(),
                 "focus_previous" => self.home.focus_previous(),
-                "cycle_next" => self.home.cycle_next(),
-                "cycle_previous" => self.home.cycle_previous(),
+                "cycle_next" if self.home.picker().is_none() => self.home.cycle_next(),
+                "cycle_previous" if self.home.picker().is_none() => self.home.cycle_previous(),
+                "picker_next" => {
+                    self.home.picker_next();
+                    self.preview_picker_theme()?;
+                }
+                "picker_previous" => {
+                    self.home.picker_previous();
+                    self.preview_picker_theme()?;
+                }
                 "focus_mode" => self.home.focus(Field::Mode),
                 "focus_length" => self.home.focus(Field::Length),
                 "focus_language" => self.home.focus(Field::Language),
                 "focus_theme" => self.home.focus(Field::Theme),
-                "start" if self.home.picker_index().is_some() => self.home.confirm_mode_picker(),
-                "start" if self.home.is_mode_focused() => self.home.open_mode_picker(),
-                "start" => self.start_test(preferences)?,
-                "cancel" => self.home.close_mode_picker(),
+                "start" if self.home.picker().is_some() => self.home.confirm_picker(),
+                "start" => {
+                    if self.home.can_open_picker() {
+                        self.home.open_picker();
+                    } else {
+                        self.start_test(preferences)?;
+                    }
+                }
+                "cancel" => {
+                    self.home.close_picker();
+                    self.restore_selected_theme()?;
+                }
                 "history" => self.screen = Screen::History,
                 "quit" => return Ok(false),
                 _ => {}
@@ -316,6 +334,29 @@ where
         Ok(())
     }
 
+    fn preview_picker_theme(&mut self) -> AppResult<()> {
+        if let Some(picker) = self.home.picker() {
+            if matches!(picker.kind, PickerKind::Theme) {
+                let theme_name = &self.home.themes[picker.index];
+                self.theme = self
+                    .themes
+                    .get(theme_name)
+                    .ok_or_else(|| AppError::InvalidConfig("selected theme does not exist".into()))?
+                    .resolve()?;
+            }
+        }
+        Ok(())
+    }
+
+    fn restore_selected_theme(&mut self) -> AppResult<()> {
+        self.theme = self
+            .themes
+            .get(self.home.current_theme())
+            .ok_or_else(|| AppError::InvalidConfig("selected theme does not exist".into()))?
+            .resolve()?;
+        Ok(())
+    }
+
     fn render(&self, frame: &mut Frame) {
         let area = frame.area();
         frame.render_widget(
@@ -350,7 +391,7 @@ enum Screen {
 struct HomeState {
     focus: Field,
     mode_index: usize,
-    mode_picker_index: Option<usize>,
+    picker: Option<PickerState>,
     duration_index: usize,
     word_count_index: usize,
     language_index: usize,
@@ -379,7 +420,7 @@ impl HomeState {
         Self {
             focus: Field::Mode,
             mode_index,
-            mode_picker_index: None,
+            picker: None,
             duration_index,
             word_count_index,
             language_index,
@@ -412,11 +453,6 @@ impl HomeState {
     }
 
     fn cycle(&mut self, delta: isize) {
-        if let Some(index) = self.mode_picker_index {
-            self.mode_picker_index = Some(cycle_index(index, 5, delta));
-            return;
-        }
-
         match self.focus {
             Field::Mode => {}
             Field::Length => match self.mode_index {
@@ -439,26 +475,57 @@ impl HomeState {
         }
     }
 
-    fn is_mode_focused(&self) -> bool {
-        self.focus == Field::Mode
+    fn can_open_picker(&self) -> bool {
+        self.focus != Field::Length || self.mode_index != 4
     }
 
-    fn open_mode_picker(&mut self) {
-        self.mode_picker_index = Some(self.mode_index);
+    fn open_picker(&mut self) {
+        self.picker = Some(match self.focus {
+            Field::Mode => PickerState::new(PickerKind::Mode, self.mode_index),
+            Field::Length if self.mode_index == 0 => {
+                PickerState::new(PickerKind::Duration, self.duration_index)
+            }
+            Field::Length => PickerState::new(PickerKind::WordCount, self.word_count_index),
+            Field::Language => PickerState::new(PickerKind::Language, self.language_index),
+            Field::Theme => PickerState::new(PickerKind::Theme, self.theme_index),
+        });
     }
 
-    fn confirm_mode_picker(&mut self) {
-        if let Some(index) = self.mode_picker_index.take() {
-            self.mode_index = index;
+    fn confirm_picker(&mut self) {
+        if let Some(picker) = self.picker.take() {
+            match picker.kind {
+                PickerKind::Mode => self.mode_index = picker.index,
+                PickerKind::Duration => self.duration_index = picker.index,
+                PickerKind::WordCount => self.word_count_index = picker.index,
+                PickerKind::Language => self.language_index = picker.index,
+                PickerKind::Theme => self.theme_index = picker.index,
+            }
         }
     }
 
-    fn close_mode_picker(&mut self) {
-        self.mode_picker_index = None;
+    fn close_picker(&mut self) {
+        self.picker = None;
     }
 
-    fn picker_index(&self) -> Option<usize> {
-        self.mode_picker_index
+    fn picker(&self) -> Option<PickerState> {
+        self.picker
+    }
+
+    fn picker_next(&mut self) {
+        self.move_picker(1);
+    }
+
+    fn picker_previous(&mut self) {
+        self.move_picker(-1);
+    }
+
+    fn move_picker(&mut self, delta: isize) {
+        if let Some(picker) = self.picker {
+            let len = picker.kind.len(self);
+            if let Some(active_picker) = &mut self.picker {
+                active_picker.index = cycle_index(active_picker.index, len, delta);
+            }
+        }
     }
 
     fn mode_name(&self) -> &'static str {
@@ -514,6 +581,48 @@ enum Field {
     Theme,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct PickerState {
+    kind: PickerKind,
+    index: usize,
+}
+
+impl PickerState {
+    fn new(kind: PickerKind, index: usize) -> Self {
+        Self { kind, index }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum PickerKind {
+    Mode,
+    Duration,
+    WordCount,
+    Language,
+    Theme,
+}
+
+impl PickerKind {
+    fn len(self, home: &HomeState) -> usize {
+        match self {
+            Self::Mode => 5,
+            Self::Duration => home.durations.len(),
+            Self::WordCount => home.word_counts.len(),
+            Self::Language => home.languages.len(),
+            Self::Theme => home.themes.len(),
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::Mode => "select mode",
+            Self::Duration | Self::WordCount => "select length",
+            Self::Language => "select language",
+            Self::Theme => "select theme",
+        }
+    }
+}
+
 impl Field {
     fn next(self) -> Self {
         match self {
@@ -538,21 +647,27 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4),
+            Constraint::Length(5),
             Constraint::Length(9),
-            Constraint::Min(7),
+            Constraint::Min(6),
             Constraint::Length(2),
         ])
         .horizontal_margin(2)
         .split(area);
 
     frame.render_widget(
-        Paragraph::new("tttui").alignment(Alignment::Center).style(
+        Paragraph::new(vec![
+            Line::from("████████╗████████╗████████╗██╗   ██╗██╗"),
+            Line::from("╚══██╔══╝╚══██╔══╝╚══██╔══╝██║   ██║██║"),
+            Line::from("   ██║      ██║      ██║   ╚██████╔╝██║"),
+        ])
+        .alignment(Alignment::Center)
+        .style(
             Style::default()
                 .fg(theme.accent)
                 .add_modifier(Modifier::BOLD),
         ),
-        centered_line(sections[0]),
+        centered_block(sections[0], 3),
     );
 
     let length_label = home.length_label();
@@ -589,33 +704,30 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
             theme,
         ),
     ];
-    frame.render_widget(
-        Paragraph::new(lines).alignment(Alignment::Center),
-        sections[1],
-    );
+    frame.render_widget(Paragraph::new(lines), centered_column(sections[1], 32));
 
-    if let Some(index) = home.picker_index() {
+    if let Some(picker) = home.picker() {
+        let modal = centered_rect(area, 38, modal_height(home, picker));
+        frame.render_widget(Clear, modal);
         frame.render_widget(
-            Paragraph::new(mode_picker_lines(index, theme)).alignment(Alignment::Center),
-            centered_block(sections[2], 7),
+            Paragraph::new(picker_lines(home, picker, theme))
+                .alignment(Alignment::Left)
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(picker.kind.title())
+                        .style(Style::default().fg(theme.text)),
+                ),
+            modal,
         );
     }
 
     frame.render_widget(
-        Paragraph::new("1-4 focus   tab next   left/right change   enter select/start")
+        Paragraph::new("1-4 focus   tab next   enter open/start   up/down choose")
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme.muted)),
         sections[3],
     );
-}
-
-fn centered_line(area: Rect) -> Rect {
-    Rect {
-        x: area.x,
-        y: area.y + area.height / 2,
-        width: area.width,
-        height: 1,
-    }
 }
 
 fn centered_block(area: Rect, height: u16) -> Rect {
@@ -624,6 +736,27 @@ fn centered_block(area: Rect, height: u16) -> Rect {
         y: area.y + area.height.saturating_sub(height) / 2,
         width: area.width,
         height: area.height.min(height),
+    }
+}
+
+fn centered_rect(area: Rect, width: u16, height: u16) -> Rect {
+    let width = area.width.min(width);
+    let height = area.height.min(height);
+    Rect {
+        x: area.x + area.width.saturating_sub(width) / 2,
+        y: area.y + area.height.saturating_sub(height) / 2,
+        width,
+        height,
+    }
+}
+
+fn centered_column(area: Rect, width: u16) -> Rect {
+    let width = area.width.min(width);
+    Rect {
+        x: area.x + area.width.saturating_sub(width) / 2,
+        y: area.y,
+        width,
+        height: area.height,
     }
 }
 
@@ -649,28 +782,43 @@ fn field_line<'a>(
     ])
 }
 
-fn mode_picker_lines(index: usize, theme: &ResolvedTheme) -> Vec<Line<'static>> {
-    let mut lines = vec![Line::from(Span::styled(
-        "select mode",
-        Style::default().fg(theme.muted),
-    ))];
-    lines.extend(
-        ["time", "words", "punctuation", "numbers", "quote"]
+fn picker_lines(
+    home: &HomeState,
+    picker: PickerState,
+    theme: &ResolvedTheme,
+) -> Vec<Line<'static>> {
+    picker_values(home, picker.kind)
+        .into_iter()
+        .enumerate()
+        .map(|(current, value)| {
+            let prefix = if current == picker.index { "> " } else { "  " };
+            let style = if current == picker.index {
+                Style::default()
+                    .fg(theme.selection)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(theme.text)
+            };
+            Line::from(Span::styled(format!("{prefix}{value}"), style))
+        })
+        .collect()
+}
+
+fn picker_values(home: &HomeState, kind: PickerKind) -> Vec<String> {
+    match kind {
+        PickerKind::Mode => ["time", "words", "punctuation", "numbers", "quote"]
             .into_iter()
-            .enumerate()
-            .map(|(current, mode)| {
-                let prefix = if current == index { "> " } else { "  " };
-                let style = if current == index {
-                    Style::default()
-                        .fg(theme.selection)
-                        .add_modifier(Modifier::BOLD)
-                } else {
-                    Style::default().fg(theme.text)
-                };
-                Line::from(Span::styled(format!("{prefix}{mode}"), style))
-            }),
-    );
-    lines
+            .map(str::to_string)
+            .collect(),
+        PickerKind::Duration => home.durations.iter().map(ToString::to_string).collect(),
+        PickerKind::WordCount => home.word_counts.iter().map(ToString::to_string).collect(),
+        PickerKind::Language => home.languages.clone(),
+        PickerKind::Theme => home.themes.clone(),
+    }
+}
+
+fn modal_height(home: &HomeState, picker: PickerState) -> u16 {
+    picker_values(home, picker.kind).len() as u16 + 2
 }
 
 fn cycle_index(index: usize, len: usize, delta: isize) -> usize {

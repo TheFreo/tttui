@@ -26,9 +26,9 @@ Default bindings:
 
 - `Tab`: move focus on the home screen
 - `1` / `2` / `3` / `4`: jump to mode, length, language, or theme
-- `Left` / `Right`: change the focused selector
-- `Enter`: open the mode picker, confirm a picker choice, start, or retry
-- `Esc`: close the mode picker
+- `Enter`: open a picker, confirm a picker choice, start, or retry
+- `Up` / `Down`: move inside pickers
+- `Esc`: close an open picker
 - `q`: quit
 - `Tab Enter`: restart during a test
 - `Tab m`: return to the menu during a test
@@ -69,6 +69,8 @@ focus_next = ["tab"]
 focus_previous = ["shift+tab"]
 cycle_next = ["right", "l"]
 cycle_previous = ["left", "h"]
+picker_next = ["down", "j"]
+picker_previous = ["up", "k"]
 focus_mode = ["1"]
 focus_length = ["2"]
 focus_language = ["3"]
