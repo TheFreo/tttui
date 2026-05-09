@@ -50,6 +50,7 @@ impl PreferencesRepository for FilePreferencesRepository {
         let mut config: AppConfig =
             toml::from_str(&raw).map_err(|error| AppError::ConfigParse(error.to_string()))?;
         config.merge_missing_keybindings();
+        config.upgrade_legacy_default_keybindings();
         Ok(config)
     }
 

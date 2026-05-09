@@ -182,16 +182,14 @@ where
         key: KeyEvent,
         preferences: &impl PreferencesRepository,
     ) -> AppResult<bool> {
-        if let Some(action) = self.matcher.push_for_actions(
-            &key,
-            &self.keymap,
-            &[
+        let allowed_actions = if self.home.picker().is_some() {
+            vec!["picker_next", "picker_previous", "start", "cancel", "quit"]
+        } else {
+            vec![
                 "focus_next",
                 "focus_previous",
                 "cycle_next",
                 "cycle_previous",
-                "picker_next",
-                "picker_previous",
                 "focus_mode",
                 "focus_length",
                 "focus_language",
@@ -200,13 +198,18 @@ where
                 "cancel",
                 "history",
                 "quit",
-            ],
-        ) {
+            ]
+        };
+
+        if let Some(action) = self
+            .matcher
+            .push_for_actions(&key, &self.keymap, &allowed_actions)
+        {
             match action.as_str() {
                 "focus_next" => self.home.focus_next(),
                 "focus_previous" => self.home.focus_previous(),
-                "cycle_next" if self.home.picker().is_none() => self.home.cycle_next(),
-                "cycle_previous" if self.home.picker().is_none() => self.home.cycle_previous(),
+                "cycle_next" => self.home.cycle_next(),
+                "cycle_previous" => self.home.cycle_previous(),
                 "picker_next" => {
                     self.home.picker_next();
                     self.preview_picker_theme()?;

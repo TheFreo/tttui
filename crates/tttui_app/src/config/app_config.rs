@@ -21,8 +21,11 @@ impl Default for AppConfig {
         let mut keybindings = BTreeMap::new();
         keybindings.insert("quit".into(), vec!["q".into()]);
         keybindings.insert("start".into(), vec!["enter".into()]);
-        keybindings.insert("focus_next".into(), vec!["tab".into()]);
-        keybindings.insert("focus_previous".into(), vec!["shift+tab".into()]);
+        keybindings.insert("focus_next".into(), vec!["tab".into(), "down".into()]);
+        keybindings.insert(
+            "focus_previous".into(),
+            vec!["shift+tab".into(), "up".into()],
+        );
         keybindings.insert("cycle_next".into(), vec!["right".into(), "l".into()]);
         keybindings.insert("cycle_previous".into(), vec!["left".into(), "h".into()]);
         keybindings.insert("picker_next".into(), vec!["down".into(), "j".into()]);
@@ -122,6 +125,28 @@ impl AppConfig {
             self.keybindings.entry(action).or_insert(bindings);
         }
     }
+
+    pub fn upgrade_legacy_default_keybindings(&mut self) {
+        if self
+            .keybindings
+            .get("focus_next")
+            .is_some_and(|bindings| bindings == &["tab"])
+        {
+            self.keybindings
+                .insert("focus_next".into(), vec!["tab".into(), "down".into()]);
+        }
+
+        if self
+            .keybindings
+            .get("focus_previous")
+            .is_some_and(|bindings| bindings == &["shift+tab"])
+        {
+            self.keybindings.insert(
+                "focus_previous".into(),
+                vec!["shift+tab".into(), "up".into()],
+            );
+        }
+    }
 }
 
 fn default_mode() -> String {
@@ -196,5 +221,40 @@ mod tests {
 
         assert_eq!(config.keybindings["history"], vec!["g"]);
         assert_eq!(config.keybindings["quit"], vec!["x"]);
+    }
+
+    #[test]
+    fn legacy_default_focus_bindings_gain_arrow_keys() {
+        let mut config = AppConfig::default();
+        config
+            .keybindings
+            .insert("focus_next".into(), vec!["tab".into()]);
+        config
+            .keybindings
+            .insert("focus_previous".into(), vec!["shift+tab".into()]);
+
+        config.upgrade_legacy_default_keybindings();
+
+        assert_eq!(config.keybindings["focus_next"], vec!["tab", "down"]);
+        assert_eq!(
+            config.keybindings["focus_previous"],
+            vec!["shift+tab", "up"]
+        );
+    }
+
+    #[test]
+    fn custom_focus_bindings_are_not_upgraded() {
+        let mut config = AppConfig::default();
+        config
+            .keybindings
+            .insert("focus_next".into(), vec!["n".into()]);
+        config
+            .keybindings
+            .insert("focus_previous".into(), vec!["p".into()]);
+
+        config.upgrade_legacy_default_keybindings();
+
+        assert_eq!(config.keybindings["focus_next"], vec!["n"]);
+        assert_eq!(config.keybindings["focus_previous"], vec!["p"]);
     }
 }
