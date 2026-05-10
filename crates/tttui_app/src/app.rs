@@ -194,6 +194,7 @@ where
                 "focus_length",
                 "focus_language",
                 "focus_theme",
+                "focus_start",
                 "start",
                 "cancel",
                 "history",
@@ -222,12 +223,12 @@ where
                 "focus_length" => self.home.focus(Field::Length),
                 "focus_language" => self.home.focus(Field::Language),
                 "focus_theme" => self.home.focus(Field::Theme),
+                "focus_start" => self.home.focus(Field::Start),
                 "start" if self.home.picker().is_some() => self.home.confirm_picker(),
+                "start" if self.home.focus == Field::Start => self.start_test(preferences)?,
                 "start" => {
                     if self.home.can_open_picker() {
                         self.home.open_picker();
-                    } else {
-                        self.start_test(preferences)?;
                     }
                 }
                 "cancel" => {
@@ -475,11 +476,12 @@ impl HomeState {
             Field::Theme => {
                 self.theme_index = cycle_index(self.theme_index, self.themes.len(), delta)
             }
+            Field::Start => {}
         }
     }
 
     fn can_open_picker(&self) -> bool {
-        self.focus != Field::Length || self.mode_index != 4
+        self.focus != Field::Start && (self.focus != Field::Length || self.mode_index != 4)
     }
 
     fn open_picker(&mut self) {
@@ -491,6 +493,7 @@ impl HomeState {
             Field::Length => PickerState::new(PickerKind::WordCount, self.word_count_index),
             Field::Language => PickerState::new(PickerKind::Language, self.language_index),
             Field::Theme => PickerState::new(PickerKind::Theme, self.theme_index),
+            Field::Start => return,
         });
     }
 
@@ -582,6 +585,7 @@ enum Field {
     Length,
     Language,
     Theme,
+    Start,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -632,16 +636,18 @@ impl Field {
             Self::Mode => Self::Length,
             Self::Length => Self::Language,
             Self::Language => Self::Theme,
-            Self::Theme => Self::Mode,
+            Self::Theme => Self::Start,
+            Self::Start => Self::Mode,
         }
     }
 
     fn previous(self) -> Self {
         match self {
-            Self::Mode => Self::Theme,
+            Self::Mode => Self::Start,
             Self::Length => Self::Mode,
             Self::Language => Self::Length,
             Self::Theme => Self::Language,
+            Self::Start => Self::Theme,
         }
     }
 }
@@ -706,6 +712,8 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
             home.focus == Field::Theme,
             theme,
         ),
+        Line::from(""),
+        action_line("5", "start", home.focus == Field::Start, theme),
     ];
     frame.render_widget(Paragraph::new(lines), centered_column(sections[1], 32));
 
@@ -726,7 +734,7 @@ fn render_home(frame: &mut Frame, area: Rect, home: &HomeState, theme: &Resolved
     }
 
     frame.render_widget(
-        Paragraph::new("1-4 focus   tab next   enter open/start   up/down choose")
+        Paragraph::new("1-5 focus   tab/up/down move   enter open/select")
             .alignment(Alignment::Center)
             .style(Style::default().fg(theme.muted)),
         sections[3],
@@ -782,6 +790,27 @@ fn field_line<'a>(
         Span::raw("    "),
         Span::styled(format!("{label:<10}"), Style::default().fg(theme.muted)),
         Span::styled(value, value_style),
+    ])
+}
+
+fn action_line<'a>(
+    shortcut: &'a str,
+    label: &'a str,
+    focused: bool,
+    theme: &ResolvedTheme,
+) -> Line<'a> {
+    let label_style = if focused {
+        Style::default()
+            .fg(theme.selection)
+            .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+    } else {
+        Style::default().fg(theme.text)
+    };
+
+    Line::from(vec![
+        Span::styled(shortcut, Style::default().fg(theme.muted)),
+        Span::raw("    "),
+        Span::styled(label, label_style),
     ])
 }
 

@@ -34,6 +34,7 @@ impl Default for AppConfig {
         keybindings.insert("focus_length".into(), vec!["2".into()]);
         keybindings.insert("focus_language".into(), vec!["3".into()]);
         keybindings.insert("focus_theme".into(), vec!["4".into()]);
+        keybindings.insert("focus_start".into(), vec!["5".into()]);
         keybindings.insert("restart".into(), vec!["tab enter".into()]);
         keybindings.insert("menu".into(), vec!["tab m".into()]);
         keybindings.insert("history".into(), vec!["g".into()]);
