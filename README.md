@@ -1,6 +1,6 @@
 # tttui
 
-`tttui` is a minimal terminal typing test written in Rust. It keeps the interface compact: choose a mode from one selector row, press `Enter`, and type.
+`tttui` is a minimal terminal typing test written in Rust. It keeps the interface compact: choose your settings from the home menu, move to `start`, and type.
 
 ## Features
 
@@ -16,6 +16,15 @@
 
 ## Run
 
+Once published to crates.io, install globally with:
+
+```sh
+cargo install tttui
+tttui
+```
+
+Run from a source checkout:
+
 ```sh
 cargo run --bin tttui
 ```
@@ -24,20 +33,20 @@ cargo run --bin tttui
 
 Default bindings:
 
-- `Tab`: move focus on the home screen
-- `1` / `2` / `3` / `4`: jump to mode, length, language, or theme
-- `Enter`: open a picker, confirm a picker choice, start, or retry
-- `Up` / `Down`: move inside pickers
+- `Tab` / `Shift+Tab` / `Up` / `Down`: move focus on the home screen
+- `1` / `2` / `3` / `4` / `5`: jump to mode, length, language, theme, or start
+- `Enter`: open a picker, confirm a picker choice, start from the `start` row, or retry
+- `Up` / `Down`: move inside an open picker
 - `Esc`: close an open picker
 - `q`: quit
 - `Tab Enter`: restart during a test
 - `Tab m`: return to the menu during a test
 
-All bindings are configurable in `~/.config/tttui/config.toml`.
+All bindings are configurable in the app config file.
 
 ## Configuration
 
-The app creates its config directory on first launch:
+The app uses the platform config directory. On Linux, that is normally `~/.config/tttui/`. The app creates the directory on first launch:
 
 ```text
 ~/.config/tttui/
@@ -65,8 +74,8 @@ history_limit = 20
 [keybindings]
 quit = ["q"]
 start = ["enter"]
-focus_next = ["tab"]
-focus_previous = ["shift+tab"]
+focus_next = ["tab", "down"]
+focus_previous = ["shift+tab", "up"]
 cycle_next = ["right", "l"]
 cycle_previous = ["left", "h"]
 picker_next = ["down", "j"]
@@ -75,6 +84,7 @@ focus_mode = ["1"]
 focus_length = ["2"]
 focus_language = ["3"]
 focus_theme = ["4"]
+focus_start = ["5"]
 restart = ["tab enter"]
 menu = ["tab m"]
 history = ["g"]
@@ -109,8 +119,6 @@ selection = "#45475a"
 [presentation]
 show_borders = false
 border_style = "plain"
-selector_separator = " / "
-caret_symbol = "_"
 ```
 
 Supported colors:
@@ -120,7 +128,9 @@ Supported colors:
 - Hex RGB values such as `"#a6e3a1"`
 - `"default"` for the terminal default background
 
-Theme presentation fields currently allow color choices, optional borders, selector separators, and caret symbols to vary without recompiling.
+Theme presentation currently supports optional graph borders and selectable border styles without recompiling.
+
+For the full configuration reference, see [`docs/configuration.md`](docs/configuration.md).
 
 ## Custom content
 
