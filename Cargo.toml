@@ -6,6 +6,9 @@ resolver = "2"
 edition = "2021"
 license = "MIT"
 version = "0.1.0"
+authors = ["Stephen Sagarino Jr."]
+repository = "https://github.com/ReidoBoss/tttui"
+homepage = "https://github.com/ReidoBoss/tttui"
 
 [workspace.dependencies]
 crossterm = "0.28"

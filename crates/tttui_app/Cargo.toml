@@ -3,6 +3,13 @@ name = "tttui"
 edition.workspace = true
 license.workspace = true
 version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "A minimal terminal typing test with customizable themes and keybindings."
+readme = "../../README.md"
+keywords = ["typing", "tui", "terminal", "cli"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 crossterm.workspace = true
@@ -11,7 +18,7 @@ rand.workspace = true
 ratatui.workspace = true
 serde.workspace = true
 toml.workspace = true
-tttui_core = { path = "../tttui_core" }
+tttui_core = { version = "0.1.0", path = "../tttui_core" }
 
 [[bin]]
 name = "tttui"

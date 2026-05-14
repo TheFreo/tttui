@@ -3,6 +3,12 @@ name = "tttui_core"
 edition.workspace = true
 license.workspace = true
 version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Shared kernel types for the tttui terminal typing test."
+keywords = ["typing", "tui", "terminal"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 thiserror.workspace = true
