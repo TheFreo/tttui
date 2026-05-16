@@ -16,6 +16,7 @@ use ratatui::{Frame, Terminal};
 use tttui_core::{AppError, AppResult};
 
 use crate::config::app_config::{AppConfig, PersonalBest, SessionHistoryEntry};
+use crate::config::app_paths::config_dir;
 use crate::features::preferences::application::ports::PreferencesRepository;
 use crate::features::preferences::domain::keybinding::{KeyMap, KeySequenceMatcher};
 use crate::features::preferences::domain::theme::{ResolvedTheme, ThemeDefinition};
@@ -35,10 +36,7 @@ pub fn run() -> AppResult<()> {
     let preferences = FilePreferencesRepository::new()?;
     let config = preferences.load_config()?;
     let themes = preferences.load_themes()?;
-    let config_dir = dirs::config_dir()
-        .ok_or_else(|| AppError::InvalidConfig("could not determine config directory".into()))?
-        .join("tttui");
-    let content = FileContentRepository::new(config_dir)?;
+    let content = FileContentRepository::new(config_dir()?)?;
     let mut app = App::new(config, themes, content)?;
 
     enable_raw_mode()?;

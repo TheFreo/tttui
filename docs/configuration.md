@@ -1,6 +1,11 @@
 # Configuration
 
-`tttui` stores user-editable files in the platform config directory. On Linux, this is normally:
+`tttui` follows the XDG config path on every platform:
+
+- `$XDG_CONFIG_HOME/tttui/` when `XDG_CONFIG_HOME` is set
+- `~/.config/tttui/` otherwise
+
+The default layout is:
 
 ```text
 ~/.config/tttui/
@@ -10,7 +15,7 @@
 └── themes/
 ```
 
-The app creates these directories on first launch. On other platforms, it follows the platform config directory provided by the OS.
+The app creates these directories on first launch.
 
 ## Main Config
 

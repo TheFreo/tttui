@@ -46,7 +46,7 @@ All bindings are configurable in the app config file.
 
 ## Configuration
 
-The app uses the platform config directory. On Linux, that is normally `~/.config/tttui/`. The app creates the directory on first launch:
+The app follows the XDG config path on every platform: `$XDG_CONFIG_HOME/tttui/` when `XDG_CONFIG_HOME` is set, otherwise `~/.config/tttui/`. The app creates the directory on first launch:
 
 ```text
 ~/.config/tttui/

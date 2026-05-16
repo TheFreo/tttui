@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use tttui_core::{AppError, AppResult};
 
 use crate::config::app_config::AppConfig;
+use crate::config::app_paths::config_dir;
 use crate::features::preferences::application::ports::PreferencesRepository;
 use crate::features::preferences::domain::theme::ThemeDefinition;
 
@@ -14,9 +15,7 @@ pub struct FilePreferencesRepository {
 
 impl FilePreferencesRepository {
     pub fn new() -> AppResult<Self> {
-        let config_dir = dirs::config_dir()
-            .ok_or_else(|| AppError::InvalidConfig("could not determine config directory".into()))?
-            .join("tttui");
+        let config_dir = config_dir()?;
 
         fs::create_dir_all(config_dir.join("themes"))?;
 
