@@ -16,9 +16,9 @@
 - Result stats and WPM graph
 - Layout that remains usable at `80x24`
 
-## Run
+## Runing and Installation
 
-Once published to crates.io, install globally with:
+Since this is published to crates.io, install globally with:
 
 ```sh
 cargo install tttui
