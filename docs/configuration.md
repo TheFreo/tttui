@@ -1,11 +1,13 @@
 # Configuration
 
-`tttui` follows the XDG config path on every platform:
+On Unix-like systems, `tttui` follows the XDG config path:
 
 - `$XDG_CONFIG_HOME/tttui/` when `XDG_CONFIG_HOME` is set
 - `~/.config/tttui/` otherwise
 
-The default layout is:
+On Windows, it uses `%APPDATA%\tttui\` by default. Setting `XDG_CONFIG_HOME` still overrides the base config directory on any platform.
+
+The Unix-like default layout is:
 
 ```text
 ~/.config/tttui/
