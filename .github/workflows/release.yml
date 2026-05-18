@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify tag matches workspace version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
+          tag="${GITHUB_REF_NAME#v}"
+          test "$tag" = "$version"
+      - run: cargo fmt --check
+      - run: cargo check -p tttui
+      - run: cargo test -p tttui
+      - run: cargo package -p tttui_core
+      - run: cargo publish -p tttui_core
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Wait for tttui_core to become available
+        run: |
+          for attempt in {1..20}; do
+            if cargo search tttui_core --limit 1 | grep -q '^tttui_core = '; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "tttui_core did not become visible on crates.io in time" >&2
+          exit 1
+      - run: cargo package -p tttui
+      - run: cargo publish -p tttui
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
